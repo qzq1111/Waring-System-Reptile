@@ -65,9 +65,9 @@ class MyReptile(object):
                 proxie = None
             response = requests.get(url, headers=self.referer_header, proxies=proxie, timeout=5)
             result = response.text.encode('utf-8')
-            print result
             strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
             dict_data = dict(json.loads(strJsonData))
+            print datetime.now(),len(dict_data["pageHelp"]["data"])
             pagecount = dict_data["pageHelp"]["pageCount"]
             return pagecount
         except requests.RequestException as e:
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        filename='timing_tasks.log',
+                        filename='timelog.log',
                         filemode='a')
     print '{}:start'.format(datetime.now())
     stocks = get_stock()
