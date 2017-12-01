@@ -212,7 +212,7 @@ if __name__ == '__main__':
     print '{}:start'.format(datetime.now())
     stocks = get_stock()
     for i in stocks:
-        stock_ = stocks[i]
+        stock_ = i
         k = MyReptile(stock_)
         start = time.time()
         download_pool(urls=k.page_urls,proxies=k.proxies,check_header=k.check_header,referer_header=k.referer_header,stock=k.stock)
