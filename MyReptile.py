@@ -175,30 +175,36 @@ def check_out(proxies, check_header):
 
 
 def download_data(url, referer_header, stock, proxies, check_header):
-    proxies_down = check_out(proxies, check_header)
-    time.sleep(5)
-    if "https://" in proxies_down:
-        proxie = {"https": proxies_down}
-    elif "http://" in proxies_down:
-        proxie = {"http": proxies_down}
-    else:
-        proxie = None
-    response = requests.get(url, headers=referer_header, proxies=proxie, timeout=5)
-    result = response.text.encode('utf-8')
-    strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
-    dict_data = dict(json.loads(strJsonData))
-    for i in dict_data["pageHelp"]["data"]:
-        pdfurl = 'http://static.sse.com.cn' + i["URL"]
-        bulletinid = hashlib.md5(pdfurl).hexdigest()
-        data_base = dict(bulletinid=bulletinid, stockcode=i["security_Code"], stockname=stock["stockname"],
-                         title=i["title"],
-                         category=i["bulletin_Type"], url=pdfurl, bulletinyear=i["bulletin_Year"],
-                         bulletindate=i["SSEDate"], uploadtime=datetime.now(), datastatus=1)
-        try:
-            session.add(Sh_A_Share(**data_base))
-            session.commit()
-        except:
-            session.rollback()
+    while 1:
+        proxies_down = check_out(proxies, check_header)
+        time.sleep(5)
+        if "https://" in proxies_down:
+            proxie = {"https": proxies_down}
+        elif "http://" in proxies_down:
+            proxie = {"http": proxies_down}
+        else:
+            proxie = None
+        response = requests.get(url, headers=referer_header, proxies=proxie, timeout=5)
+        if response.status_code < 300:
+            result = response.text.encode('utf-8')
+            strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
+            dict_data = dict(json.loads(strJsonData))
+            for i in dict_data["pageHelp"]["data"]:
+                pdfurl = 'http://static.sse.com.cn' + i["URL"]
+                bulletinid = hashlib.md5(pdfurl).hexdigest()
+                data_base = dict(bulletinid=bulletinid, stockcode=i["security_Code"], stockname=stock["stockname"],
+                                 title=i["title"],
+                                 category=i["bulletin_Type"], url=pdfurl, bulletinyear=i["bulletin_Year"],
+                                 bulletindate=i["SSEDate"], uploadtime=datetime.now(), datastatus=1)
+                try:
+                    session.add(Sh_A_Share(**data_base))
+                    session.commit()
+                except:
+                    session.rollback()
+            break
+        else:
+            time.sleep(5)
+            continue
 
 
 def download_pool(urls, proxies, check_header, referer_header, stock):
