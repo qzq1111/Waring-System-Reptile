@@ -107,6 +107,7 @@ class MyReptile(object):
             else:
                 session.query(Ip_Pool).filter(Ip_Pool.ip == proxie).update({Ip_Pool.datastatus: 2})
                 session.commit()
+                time.sleep(5)
                 continue
         return result
 
