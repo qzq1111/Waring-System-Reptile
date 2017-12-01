@@ -65,6 +65,7 @@ class MyReptile(object):
                 proxie = None
             response = requests.get(url, headers=self.referer_header, proxies=proxie, timeout=5)
             result = response.text.encode('utf-8')
+            print result
             strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
             dict_data = dict(json.loads(strJsonData))
             pagecount = dict_data["pageHelp"]["pageCount"]
@@ -124,6 +125,7 @@ class MyReptile(object):
                                          pageNo=i,
                                          beginPage=i)
                 urls.append(stock_url)
+            time.sleep(5)
 
         return urls
 
@@ -169,11 +171,14 @@ def check_out(proxies, check_header):
             continue
     return result
 
-def download_data(url, referer_header, stock, proxies):
-    if "https://" in proxies:
-        proxie = {"https": proxies}
-    elif "http://" in proxies:
-        proxie = {"http": proxies}
+
+def download_data(url, referer_header, stock, proxies, check_header):
+    proxies_down = check_out(proxies, check_header)
+    time.sleep(5)
+    if "https://" in proxies_down:
+        proxie = {"https": proxies_down}
+    elif "http://" in proxies_down:
+        proxie = {"http": proxies_down}
     else:
         proxie = None
     response = requests.get(url, headers=referer_header, proxies=proxie, timeout=5)
@@ -197,10 +202,10 @@ def download_data(url, referer_header, stock, proxies):
 def download_pool(urls, proxies, check_header, referer_header, stock):
     pool = Pool(processes=4)
     for i in xrange(len(urls)):
-        proxie_down = check_out(proxies, check_header)
-        pool.apply_async(download_data, (urls[i], referer_header, stock, proxie_down,))
+        pool.apply_async(download_data, (urls[i], referer_header, stock, proxies, check_header))
     pool.close()
     pool.join()
+    print 'down_success'
 
 
 if __name__ == '__main__':
@@ -212,12 +217,15 @@ if __name__ == '__main__':
     print '{}:start'.format(datetime.now())
     stocks = get_stock()
     for i in stocks:
-        stock_ = i
-        k = MyReptile(stock_)
+        stock = i
+        print stock
+        k = MyReptile(stock)
         start = time.time()
-        download_pool(urls=k.page_urls,proxies=k.proxies,check_header=k.check_header,referer_header=k.referer_header,stock=k.stock)
+        download_pool(urls=k.page_urls, proxies=k.proxies, check_header=k.check_header, referer_header=k.referer_header,
+                      stock=k.stock)
         end = time.time()
-        msg='股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock_["stockcode"],stock_["stockname"].encode('utf-8'),end - start,datetime.now())
+        msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"].encode('utf-8'), end - start,
+                                                    datetime.now())
         logging.info(msg)
         time.sleep(5)
     print '{}:end'.format(datetime.now())
