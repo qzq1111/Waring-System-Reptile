@@ -6,7 +6,7 @@ import time
 import random
 import logging
 import re
-
+import threading
 from multiprocessing import Pool
 from datetime import datetime
 from entities.models import session, Sh_A_Share, Sh_Share, Ip_Pool
@@ -28,7 +28,6 @@ class MyReptile(object):
         self.check_header = header
         self.page_urls = self.download_page()
 
-
     @staticmethod
     def get_header(productId):
         header = {"Accept": "text/html,application/xhtml+xml,application/xml;"
@@ -40,7 +39,7 @@ class MyReptile(object):
                   "Referer": "http://www.sse.com.cn/",
                   "Host": "query.sse.com.cn",
                   "Upgrade-Insecure-Requests": "1",
-                  "User-Agent":None
+                  "User-Agent": None
                   }
         referer = 'http://www.sse.com.cn/assortment/stock/list/info/announcement/index.shtml?productId={}'.format(
             productId)
@@ -68,7 +67,8 @@ class MyReptile(object):
         url = "http://query.sse.com.cn/security/stock/queryCompanyStatementNew.do?jsonCallBack={}" \
               "&isPagination=true&productId={}&keyWord=&isNew=1&reportType2=&reportType=ALL&beginDate={}" \
               "&endDate={}&pageHelp.pageSize=25&pageHelp.pageCount=50&pageHelp.pageNo={}&pageHelp.beginPage={}" \
-              "&pageHelp.cacheSize=1&pageHelp.endPage=5&_={}".format(jsonpCallback,productId, beginDate, endDate, pageNo, beginPage,
+              "&pageHelp.cacheSize=1&pageHelp.endPage=5&_={}".format(jsonpCallback, productId, beginDate, endDate,
+                                                                     pageNo, beginPage,
                                                                      int(time.mktime(datetime.now().timetuple())))
         return url
 
@@ -82,9 +82,10 @@ class MyReptile(object):
                 proxie = None
             response = requests.get(url, headers=self.referer_header, proxies=proxie, timeout=5)
             result = response.text.encode('utf-8')
-            strJsonData = re.findall(r'[^()]+',str(result))[1]
+            strresult = str(result)
+            strJsonData = strresult[strresult.find('(') + 1:strresult.rfind(')')]
             dict_data = dict(json.loads(strJsonData))
-            print datetime.now(),len(dict_data["pageHelp"]["data"])
+            print datetime.now(), len(dict_data["pageHelp"]["data"])
             pagecount = dict_data["pageHelp"]["pageCount"]
             return pagecount
         except requests.RequestException as e:
@@ -117,7 +118,7 @@ class MyReptile(object):
 
     def check_out(self):
         while 1:
-            proxie = self.proxies[random.randint(0, len(self.proxies))]
+            proxie = self.proxies[random.randint(0, len(self.proxies) - 1)]
             if self.check_out_base(proxie):
                 result = proxie
                 break
@@ -186,7 +187,7 @@ def check_out_base(proxys, check_header):
 
 def check_out(proxies, check_header):
     while 1:
-        proxie = proxies[random.randint(0, len(proxies))]
+        proxie = proxies[random.randint(0, len(proxies) - 1)]
         if check_out_base(proxie, check_header):
             result = proxie
             break
@@ -201,7 +202,6 @@ def check_out(proxies, check_header):
 def download_data(url, referer_header, stock, proxies, check_header):
     while 1:
         proxies_down = check_out(proxies, check_header)
-        time.sleep(5)
         if "https://" in proxies_down:
             proxie = {"https": proxies_down}
         elif "http://" in proxies_down:
@@ -218,21 +218,28 @@ def download_data(url, referer_header, stock, proxies, check_header):
             response = None
         if status_code < 300 and response is not None:
             result = response.text.encode('utf-8')
-            strJsonData = re.findall(r'[^()]+',str(result))[1]
-            dict_data = dict(json.loads(strJsonData))
-            for i in dict_data["pageHelp"]["data"]:
-                pdfurl = 'http://static.sse.com.cn' + i["URL"]
-                bulletinid = hashlib.md5(pdfurl).hexdigest()
-                data_base = dict(bulletinid=bulletinid, stockcode=i["security_Code"], stockname=stock["stockname"],
-                                 title=i["title"],
-                                 category=i["bulletin_Type"], url=pdfurl, bulletinyear=i["bulletin_Year"],
-                                 bulletindate=i["SSEDate"], uploadtime=datetime.now(), datastatus=1)
-                try:
-                    session.add(Sh_A_Share(**data_base))
-                    session.commit()
-                except:
-                    session.rollback()
-            break
+            strresult = str(result)
+            try:
+                strJsonData = strresult[strresult.find('(') + 1:strresult.rfind(')')]
+                dict_data = dict(json.loads(strJsonData))
+            except Exception as e:
+                print e
+                time.sleep(5)
+                continue
+            else:
+                for i in dict_data["pageHelp"]["data"]:
+                    pdfurl = 'http://static.sse.com.cn' + i["URL"]
+                    bulletinid = hashlib.md5(pdfurl).hexdigest()
+                    data_base = dict(bulletinid=bulletinid, stockcode=i["security_Code"], stockname=stock["stockname"],
+                                     title=i["title"],
+                                     category=i["bulletin_Type"], url=pdfurl, bulletinyear=i["bulletin_Year"],
+                                     bulletindate=i["SSEDate"], uploadtime=datetime.now(), datastatus=1)
+                    try:
+                        session.add(Sh_A_Share(**data_base))
+                        session.commit()
+                    except:
+                        session.rollback()
+                break
         else:
             time.sleep(5)
             continue
@@ -247,7 +254,23 @@ def download_pool(urls, proxies, check_header, referer_header, stock):
     print 'down_success'
 
 
+class myThread(threading.Thread):
+    def __init__(self, urls, proxies, check_header, referer_header, stock):
+        threading.Thread.__init__(self)
+        self.urls = urls
+        self.proxies = proxies
+        self.check_header = check_header
+        self.referer_header = referer_header
+        self.stock = stock
+
+    def run(self):
+        threadLock.acquire()
+        download_data(self.urls, self.referer_header, self.stock, self.proxies, self.check_header)
+        threadLock.release()
+
+
 if __name__ == '__main__':
+
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
@@ -256,17 +279,37 @@ if __name__ == '__main__':
     print '{}:start'.format(datetime.now())
     stocks = get_stock()
     for i in stocks:
+        threadLock = threading.Lock()
+        threads = []
+        # stock = i
+        # print stock
+        # k = MyReptile(stock)
+        # start = time.time()
+        # download_pool(urls=k.page_urls, proxies=k.proxies, check_header=k.check_header, referer_header=k.referer_header,
+        #               stock=k.stock)
+        # end = time.time()
+        # msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"].encode('utf-8'), end - start,
+        #                                             datetime.now())
+        # logging.info(msg)
+        # session.query(Sh_Share).filter(Sh_Share.stockcode == stock["stockcode"]).update({Sh_Share.datastatus: 2})
+        # session.commit()
+        # time.sleep(5)
         stock = i
         print stock
         k = MyReptile(stock)
         start = time.time()
-        download_pool(urls=k.page_urls, proxies=k.proxies, check_header=k.check_header, referer_header=k.referer_header,
-                      stock=k.stock)
+        for dd in k.page_urls:
+            thread = myThread(urls=dd, proxies=k.proxies, check_header=k.check_header, referer_header=k.referer_header,stock=k.stock)
+            thread.start()
+            threads.append(thread)
+        for t in threads:
+            t.join()
+        print 'down_success'
         end = time.time()
         msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"].encode('utf-8'), end - start,
                                                     datetime.now())
         logging.info(msg)
-        time.sleep(5)
         session.query(Sh_Share).filter(Sh_Share.stockcode == stock["stockcode"]).update({Sh_Share.datastatus: 2})
         session.commit()
+        time.sleep(5)
     print '{}:end'.format(datetime.now())
