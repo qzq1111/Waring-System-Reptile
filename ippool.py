@@ -102,9 +102,12 @@ class myThread(object):
         for thread in self.threads:
             thread.join()
 
-url = 'http://www.xicidaili.com/nn/13'
+import time
 if __name__ == '__main__':
-    proxys_list = proxys(header_xici, url)
-    t = myThread(proxys_list, header_sse)
-    t.thread_list()
-    t.run()
+    for i in xrange(1,20):
+        url = 'http://www.xicidaili.com/nn/{}'.format(i)
+        proxys_list = proxys(header_xici, url)
+        t = myThread(proxys_list, header_sse)
+        t.thread_list()
+        t.run()
+        time.sleep(5)

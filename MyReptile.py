@@ -5,6 +5,7 @@ import requests
 import time
 import random
 import logging
+import re
 
 from multiprocessing import Pool
 from datetime import datetime
@@ -26,6 +27,7 @@ class MyReptile(object):
         self.proxies = self.get_proxies()
         self.check_header = header
         self.page_urls = self.download_page()
+
 
     @staticmethod
     def get_header(productId):
@@ -62,10 +64,11 @@ class MyReptile(object):
 
     @staticmethod
     def get_url(productId, beginDate, endDate, pageNo, beginPage):
-        url = "http://query.sse.com.cn/security/stock/queryCompanyStatementNew.do?jsonCallBack=jsonpCallback18344" \
+        jsonpCallback = 'jsonpCallback' + str(random.randint(1000, 99999))
+        url = "http://query.sse.com.cn/security/stock/queryCompanyStatementNew.do?jsonCallBack={}" \
               "&isPagination=true&productId={}&keyWord=&isNew=1&reportType2=&reportType=ALL&beginDate={}" \
               "&endDate={}&pageHelp.pageSize=25&pageHelp.pageCount=50&pageHelp.pageNo={}&pageHelp.beginPage={}" \
-              "&pageHelp.cacheSize=1&pageHelp.endPage=5&_={}".format(productId, beginDate, endDate, pageNo, beginPage,
+              "&pageHelp.cacheSize=1&pageHelp.endPage=5&_={}".format(jsonpCallback,productId, beginDate, endDate, pageNo, beginPage,
                                                                      int(time.mktime(datetime.now().timetuple())))
         return url
 
@@ -79,7 +82,7 @@ class MyReptile(object):
                 proxie = None
             response = requests.get(url, headers=self.referer_header, proxies=proxie, timeout=5)
             result = response.text.encode('utf-8')
-            strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
+            strJsonData = re.findall(r'[^()]+',str(result))[1]
             dict_data = dict(json.loads(strJsonData))
             print datetime.now(),len(dict_data["pageHelp"]["data"])
             pagecount = dict_data["pageHelp"]["pageCount"]
@@ -135,13 +138,20 @@ class MyReptile(object):
             stock_url = self.get_url(productId=self.stock["stockcode"], beginDate=beginDate, endDate=endDate, pageNo=1,
                                      beginPage=1)
             pagecount = self.get_page(stock_url, proxie)
+            if pagecount is False:
+                proxie = self.check_out()
+                beginDate = str(2014 + t) + '-01-01'
+                endDate = str(2015 + t) + '-01-01'
+                stock_url = self.get_url(productId=self.stock["stockcode"], beginDate=beginDate, endDate=endDate,
+                                         pageNo=1,
+                                         beginPage=1)
+                pagecount = self.get_page(stock_url, proxie)
             for i in xrange(1, pagecount + 1):
                 stock_url = self.get_url(productId=self.stock["stockcode"], beginDate=beginDate, endDate=endDate,
                                          pageNo=i,
                                          beginPage=i)
                 urls.append(stock_url)
             time.sleep(5)
-
         return urls
 
 
@@ -208,7 +218,7 @@ def download_data(url, referer_header, stock, proxies, check_header):
             response = None
         if status_code < 300 and response is not None:
             result = response.text.encode('utf-8')
-            strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
+            strJsonData = re.findall(r'[^()]+',str(result))[1]
             dict_data = dict(json.loads(strJsonData))
             for i in dict_data["pageHelp"]["data"]:
                 pdfurl = 'http://static.sse.com.cn' + i["URL"]
