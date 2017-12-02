@@ -38,12 +38,26 @@ class MyReptile(object):
                   "Referer": "http://www.sse.com.cn/",
                   "Host": "query.sse.com.cn",
                   "Upgrade-Insecure-Requests": "1",
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                                "Chrome/62.0.3202.89 Safari/537.36",
+                  "User-Agent":None
                   }
         referer = 'http://www.sse.com.cn/assortment/stock/list/info/announcement/index.shtml?productId={}'.format(
             productId)
         header.update({"Referer": referer})
+        uaList = [
+            'Mozilla/4.0+(compatible;+MSIE+6.0;+Windows+NT+5.1;+SV1;+.NET+CLR+1.1.4322;+TencentTraveler)',
+            'Mozilla/4.0+(compatible;+MSIE+6.0;+Windows+NT+5.1;+SV1;+.NET+CLR+2.0.50727;+.NET+CLR+3.0.4506.2152;+.NET+CLR+3.5.30729)',
+            'Mozilla/5.0+(Windows+NT+5.1)+AppleWebKit/537.1+(KHTML,+like+Gecko)+Chrome/21.0.1180.89+Safari/537.1',
+            'Mozilla/4.0+(compatible;+MSIE+6.0;+Windows+NT+5.1;+SV1)',
+            'Mozilla/5.0+(Windows+NT+6.1;+rv:11.0)+Gecko/20100101+Firefox/11.0',
+            'Mozilla/4.0+(compatible;+MSIE+8.0;+Windows+NT+5.1;+Trident/4.0;+SV1)',
+            'Mozilla/4.0+(compatible;+MSIE+8.0;+Windows+NT+5.1;+Trident/4.0;+GTB7.1;+.NET+CLR+2.0.50727)',
+            'Mozilla/4.0+(compatible;+MSIE+8.0;+Windows+NT+5.1;+Trident/4.0;+KB974489)',
+            'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.89 Safari/537.36',
+        ]
+        ua = random.choice(uaList)
+        header.update({"User-Agent": ua})
         return header
 
     @staticmethod
@@ -132,7 +146,7 @@ class MyReptile(object):
 
 
 def get_stock():
-    stocks = session.query(Sh_Share).all()
+    stocks = session.query(Sh_Share).filter(Sh_Share.datastatus == 1).all()
     data = []
     for stock in stocks:
         base = stock.__dict__
@@ -184,8 +198,15 @@ def download_data(url, referer_header, stock, proxies, check_header):
             proxie = {"http": proxies_down}
         else:
             proxie = None
-        response = requests.get(url, headers=referer_header, proxies=proxie, timeout=5)
-        if response.status_code < 300:
+        try:
+            response = requests.get(url, headers=referer_header, proxies=proxie, timeout=5)
+            response.raise_for_status()
+            status_code = response.status_code
+        except requests.exceptions.RequestException as e:
+            print e
+            status_code = 400
+            response = None
+        if status_code < 300 and response is not None:
             result = response.text.encode('utf-8')
             strJsonData = str(result)[len('jsonpCallback18344') + 1:-1]
             dict_data = dict(json.loads(strJsonData))
@@ -236,4 +257,6 @@ if __name__ == '__main__':
                                                     datetime.now())
         logging.info(msg)
         time.sleep(5)
+        session.query(Sh_Share).filter(Sh_Share.stockcode == stock["stockcode"]).update({Sh_Share.datastatus: 2})
+        session.commit()
     print '{}:end'.format(datetime.now())

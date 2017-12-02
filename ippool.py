@@ -26,7 +26,7 @@ header_xici = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.89 Safari/537.36'
 }
 
-url = 'http://www.xicidaili.com/nn/18'
+
 
 header_sse = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
                 "Accept-Encoding": "gzip, deflate, br",
@@ -102,7 +102,7 @@ class myThread(object):
         for thread in self.threads:
             thread.join()
 
-
+url = 'http://www.xicidaili.com/nn/13'
 if __name__ == '__main__':
     proxys_list = proxys(header_xici, url)
     t = myThread(proxys_list, header_sse)

@@ -42,3 +42,4 @@ class Sh_Share(Base):
     stockname=Column(String(30),nullable=True)
     companycode=Column(String(7),nullable=True)
     companyname=Column(String(30),nullable=True)
+    datastatus=Column(Integer,nullable=True)
