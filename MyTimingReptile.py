@@ -248,6 +248,7 @@ def download_data(url, referer_header, stock, proxies, check_header):
 class myThread(threading.Thread):
     def __init__(self, urls, proxies, check_header, referer_header, stock):
         threading.Thread.__init__(self)
+        self.threadLock = threading.Lock()
         self.urls = urls
         self.proxies = proxies
         self.check_header = check_header
@@ -255,9 +256,9 @@ class myThread(threading.Thread):
         self.stock = stock
 
     def run(self):
-        threadLock.acquire()
+        self.threadLock.acquire()
         download_data(self.urls, self.referer_header, self.stock, self.proxies, self.check_header)
-        threadLock.release()
+        self.threadLock.release()
 
 
 def try_timing():
@@ -291,12 +292,11 @@ def try_timing():
 
 
 if __name__ == '__main__':
-    threadLock = threading.Lock()
     scheduler = BlockingScheduler()
     scheduler.add_job(
         func=try_timing,
         trigger='cron',
-        hour=24,
+        hour=0,
         id='try_timing',
         name='try_timing',
         replace_existing=True
