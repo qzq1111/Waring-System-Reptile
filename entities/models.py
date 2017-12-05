@@ -1,15 +1,15 @@
 # coding: utf-8
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, sessionmaker, scoped_session
 
 """
 连接数据库
 """
 db = 'mysql+pymysql://root:mad123@39.108.60.79/graduation_project?charset=utf8'
-engine = create_engine(db, encoding='utf-8')
+engine = create_engine(db, encoding='utf-8',pool_recycle=3600)
 Base = declarative_base()
-DBSession = sessionmaker(bind=engine)
+DBSession = scoped_session(sessionmaker(autocommit=False,autoflush=False, bind=engine))
 session = DBSession()
 
 
