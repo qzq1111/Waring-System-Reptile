@@ -156,15 +156,23 @@ class MyTimingReptile(object):
         return urls
 
 
+# def get_stock():
+#     stocks = session.query(Sh_Share).filter(Sh_Share.datastatus == 2).all()
+#     data = []
+#     for stock in stocks:
+#         base = stock.__dict__
+#         base.pop('_sa_instance_state')
+#         base.pop('companycode')
+#         base.pop('companyname')
+#         data.append(base)
+#     return data
+
 def get_stock():
-    stocks = session.query(Sh_Share).filter(Sh_Share.datastatus == 2).all()
     data = []
-    for stock in stocks:
-        base = stock.__dict__
-        base.pop('_sa_instance_state')
-        base.pop('companycode')
-        base.pop('companyname')
-        data.append(base)
+    with open('sh_share.csv', 'r') as f:
+        for i in f.readlines():
+            base = i.strip().split(',')
+            data.append({"stockcode": base[0], "stockname": base[1]})
     return data
 
 
