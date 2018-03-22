@@ -292,7 +292,7 @@ def try_timing():
             t.join()
         print 'down_success'
         end = time.time()
-        msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"].encode('utf-8'), end - start,
+        msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"], end - start,
                                                     datetime.now())
         logging.info(msg)
         time.sleep(5)
