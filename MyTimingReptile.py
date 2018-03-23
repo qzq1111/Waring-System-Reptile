@@ -6,10 +6,27 @@ import time
 import random
 import logging
 import threading
-
-from datetime import datetime,timedelta
+import pymysql
+from datetime import datetime, timedelta
 from apscheduler.schedulers.blocking import BlockingScheduler
 from entities.models import session, Sh_A_Share, Sh_Share, Ip_Pool
+
+
+class MySqlCon:
+    def __init__(self):
+        self.host = '39.108.60.79'
+        self.port = 3306
+        self.user = 'root'
+        self.passwd = 'mad123'
+        self.db = 'graduation_project'
+        self.conn, self.cursor = self.conn_db()
+
+    def conn_db(self):
+        conn = pymysql.connect(host=self.host, port=self.port, user=self.user, passwd=self.passwd, db=self.db,
+                               charset='utf8')
+        cursor = conn.cursor()
+
+        return conn, cursor
 
 
 class MyTimingReptile(object):
@@ -83,7 +100,7 @@ class MyTimingReptile(object):
                 proxie = None
             try:
                 response = requests.get(url, headers=self.referer_header, proxies=proxie, timeout=5)
-            except requests.RequestException as e:
+            except Exception as e:
                 print e
                 continue
             else:
@@ -99,8 +116,6 @@ class MyTimingReptile(object):
                     print datetime.now(), len(dict_data["pageHelp"]["data"])
                     pagecount = dict_data["pageHelp"]["pageCount"]
                     return pagecount
-
-
 
     @staticmethod
     def get_proxies():
@@ -235,18 +250,32 @@ def download_data(url, referer_header, stock, proxies, check_header):
                 time.sleep(5)
                 continue
             else:
+                db = MySqlCon()
+                data = {}
+                bulletinid_list = []
+                sql = """INSERT INTO sh_a_share(bulletinid,stockcode,stockname
+                                      title,category,url,bulletinyear,bulletindate,uploadtime,datastatus)
+                                      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) """
                 for i in dict_data["pageHelp"]["data"]:
                     pdfurl = 'http://static.sse.com.cn' + i["URL"]
                     bulletinid = hashlib.md5(pdfurl).hexdigest()
-                    data_base = dict(bulletinid=bulletinid, stockcode=i["security_Code"], stockname=stock["stockname"],
-                                     title=i["title"],
-                                     category=i["bulletin_Type"], url=pdfurl, bulletinyear=i["bulletin_Year"],
-                                     bulletindate=i["SSEDate"], uploadtime=datetime.now(), datastatus=1)
+                    bulletinid_list.append(bulletinid)
+                    data.update({bulletinid: (bulletinid, i["security_Code"].encode('utf-8'),
+                                              stock["stockname"], i["title"].encode('utf-8'),
+                                              i["bulletin_Type"].encode('utf-8'), pdfurl.encode('utf-8'),
+                                              i["bulletin_Year"].encode('utf-8'),
+                                              i["SSEDate"].encode('utf-8'), str(datetime.now()), 1)})
+                repeat = session.query(Sh_A_Share.bulletinid).filter(Sh_A_Share.bulletinid.in_(bulletinid_list)).all()
+                for kk in repeat:
+                    data.pop(kk.bulletinid)
+                if data:
                     try:
-                        session.add(Sh_A_Share(**data_base))
-                        session.commit()
-                    except:
-                        session.rollback()
+                        db.cursor.executemany(sql, data.values())
+                        db.conn.commit()
+                    except Exception as e:
+                        db.conn.rollback()
+
+                db.conn.close()
                 break
         else:
             time.sleep(5)

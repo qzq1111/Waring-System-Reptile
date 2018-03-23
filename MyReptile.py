@@ -6,10 +6,28 @@ import time
 import random
 import logging
 import re
+import pymysql
 import threading
 from multiprocessing import Pool
 from datetime import datetime
 from entities.models import session, Sh_A_Share, Sh_Share, Ip_Pool
+
+
+class MySqlCon:
+    def __init__(self):
+        self.host = '39.108.60.79'
+        self.port = 3306
+        self.user = 'root'
+        self.passwd = 'mad123'
+        self.db = 'graduation_project'
+        self.conn, self.cursor = self.conn_db()
+
+    def conn_db(self):
+        conn = pymysql.connect(host=self.host, port=self.port, user=self.user, passwd=self.passwd, db=self.db,
+                               charset='utf8')
+        cursor = conn.cursor()
+
+        return conn, cursor
 
 
 class MyReptile(object):
@@ -88,7 +106,7 @@ class MyReptile(object):
             print datetime.now(), len(dict_data["pageHelp"]["data"])
             pagecount = dict_data["pageHelp"]["pageCount"]
             return pagecount
-        except requests.RequestException as e:
+        except Exception as e:
             print e
             return False
 
@@ -131,22 +149,24 @@ class MyReptile(object):
 
     def download_page(self):
         urls = []
-        for t in xrange(4):
+        for t in xrange(1, 2):
             proxie = self.check_out()
-            beginDate = str(2014 + t) + '-01-01'
-            endDate = str(2015 + t) + '-01-01'
+            beginDate = str(2017 + t) + '-02-01'
+            endDate = str(2018 + t) + '-01-01'
 
             stock_url = self.get_url(productId=self.stock["stockcode"], beginDate=beginDate, endDate=endDate, pageNo=1,
                                      beginPage=1)
             pagecount = self.get_page(stock_url, proxie)
             if pagecount is False:
                 proxie = self.check_out()
-                beginDate = str(2014 + t) + '-01-01'
-                endDate = str(2015 + t) + '-01-01'
+                beginDate = str(2017 + t) + '-02-01'
+                endDate = str(2018 + t) + '-01-01'
                 stock_url = self.get_url(productId=self.stock["stockcode"], beginDate=beginDate, endDate=endDate,
                                          pageNo=1,
                                          beginPage=1)
                 pagecount = self.get_page(stock_url, proxie)
+                if pagecount is False:
+                    pagecount = 0
             for i in xrange(1, pagecount + 1):
                 stock_url = self.get_url(productId=self.stock["stockcode"], beginDate=beginDate, endDate=endDate,
                                          pageNo=i,
@@ -156,15 +176,22 @@ class MyReptile(object):
         return urls
 
 
+# def get_stock():
+#     stocks = session.query(Sh_Share).filter(Sh_Share.datastatus == 1).all()
+#     data = []
+#     for stock in stocks:
+#         base = stock.__dict__
+#         base.pop('_sa_instance_state')
+#         base.pop('companycode')
+#         base.pop('companyname')
+#         data.append(base)
+#     return data
 def get_stock():
-    stocks = session.query(Sh_Share).filter(Sh_Share.datastatus == 1).all()
     data = []
-    for stock in stocks:
-        base = stock.__dict__
-        base.pop('_sa_instance_state')
-        base.pop('companycode')
-        base.pop('companyname')
-        data.append(base)
+    with open('sh_share.csv', 'r') as f:
+        for i in f.readlines():
+            base = i.strip().split(',')
+            data.append({"stockcode": base[0], "stockname": base[1]})
     return data
 
 
@@ -227,18 +254,54 @@ def download_data(url, referer_header, stock, proxies, check_header):
                 time.sleep(5)
                 continue
             else:
+                db = MySqlCon()
+                data = {}
+                bulletinid_list = []
+                sql = """INSERT INTO sh_a_share(bulletinid,stockcode,stockname
+                      title,category,url,bulletinyear,bulletindate,uploadtime,datastatus)
+                      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) """
                 for i in dict_data["pageHelp"]["data"]:
                     pdfurl = 'http://static.sse.com.cn' + i["URL"]
                     bulletinid = hashlib.md5(pdfurl).hexdigest()
-                    data_base = dict(bulletinid=bulletinid, stockcode=i["security_Code"], stockname=stock["stockname"],
-                                     title=i["title"],
-                                     category=i["bulletin_Type"], url=pdfurl, bulletinyear=i["bulletin_Year"],
-                                     bulletindate=i["SSEDate"], uploadtime=datetime.now(), datastatus=1)
+                    bulletinid_list.append(bulletinid)
+                    data.update({bulletinid: (bulletinid, i["security_Code"].encode('utf-8'),
+                                              stock["stockname"], i["title"].encode('utf-8'),
+                                              i["bulletin_Type"].encode('utf-8'), pdfurl.encode('utf-8'),
+                                              i["bulletin_Year"].encode('utf-8'),
+                                              i["SSEDate"].encode('utf-8'), str(datetime.now()), 1)})
+
+                    # sql = "INSERT INTO sh_a_share(bulletinid,stockcode,stockname, " \
+                    #       "title,category,url,bulletinyear,bulletindate,uploadtime,datastatus) " \
+                    #       "VALUES('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}') ".format(bulletinid,
+                    #                                                                           i["security_Code"].encode(
+                    #                                                                               'utf-8'),
+                    #                                                                           stock["stockname"],
+                    #                                                                           i["title"].encode(
+                    #                                                                               'utf-8'),
+                    #                                                                           i["bulletin_Type"].encode(
+                    #                                                                               'utf-8'),
+                    #                                                                           pdfurl.encode('utf-8'),
+                    #                                                                           i["bulletin_Year"].encode(
+                    #                                                                               'utf-8'),
+                    #                                                                           i["SSEDate"].encode(
+                    #                                                                               'utf-8'),
+                    #                                                                           str(datetime.now()), 1)
+                    # try:
+                    #     db.cursor.execute(sql)
+                    #     db.conn.commit()
+                    # except Exception as e:
+                    #     db.conn.rollback()
+                repeat = session.query(Sh_A_Share.bulletinid).filter(Sh_A_Share.bulletinid.in_(bulletinid_list)).all()
+                for kk in repeat:
+                    data.pop(kk.bulletinid)
+                if data:
                     try:
-                        session.add(Sh_A_Share(**data_base))
-                        session.commit()
-                    except:
-                        session.rollback()
+                        db.cursor.executemany(sql, data.values())
+                        db.conn.commit()
+                    except Exception as e:
+                        db.conn.rollback()
+
+                db.conn.close()
                 break
         else:
             time.sleep(5)
@@ -278,6 +341,7 @@ if __name__ == '__main__':
                         filemode='a')
     print '{}:start'.format(datetime.now())
     stocks = get_stock()
+    print(stocks)
     for i in stocks:
         threadLock = threading.Lock()
         threads = []
@@ -299,14 +363,15 @@ if __name__ == '__main__':
         k = MyReptile(stock)
         start = time.time()
         for dd in k.page_urls:
-            thread = myThread(urls=dd, proxies=k.proxies, check_header=k.check_header, referer_header=k.referer_header,stock=k.stock)
+            thread = myThread(urls=dd, proxies=k.proxies, check_header=k.check_header, referer_header=k.referer_header,
+                              stock=k.stock)
             thread.start()
             threads.append(thread)
         for t in threads:
             t.join()
         print 'down_success'
         end = time.time()
-        msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"].encode('utf-8'), end - start,
+        msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"], end - start,
                                                     datetime.now())
         logging.info(msg)
         session.query(Sh_Share).filter(Sh_Share.stockcode == stock["stockcode"]).update({Sh_Share.datastatus: 2})
