@@ -143,7 +143,6 @@ class MyReptile(object):
             else:
                 session.query(Ip_Pool).filter(Ip_Pool.ip == proxie).update({Ip_Pool.datastatus: 2})
                 session.commit()
-                time.sleep(5)
                 continue
         return result
 
@@ -172,7 +171,6 @@ class MyReptile(object):
                                          pageNo=i,
                                          beginPage=i)
                 urls.append(stock_url)
-            time.sleep(5)
         return urls
 
 
@@ -221,7 +219,6 @@ def check_out(proxies, check_header):
         else:
             session.query(Ip_Pool).filter(Ip_Pool.ip == proxie).update({Ip_Pool.datastatus: 2})
             session.commit()
-            time.sleep(5)
             continue
     return result
 
@@ -251,24 +248,23 @@ def download_data(url, referer_header, stock, proxies, check_header):
                 dict_data = dict(json.loads(strJsonData))
             except Exception as e:
                 print e
-                time.sleep(5)
                 continue
             else:
                 db = MySqlCon()
                 data = {}
                 bulletinid_list = []
-                sql = """INSERT INTO sh_a_share(bulletinid,stockcode,stockname
+                sql = """INSERT INTO sh_a_share(bulletinid,stockcode,stockname,
                       title,category,url,bulletinyear,bulletindate,uploadtime,datastatus)
-                      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) """
-                for i in dict_data["pageHelp"]["data"]:
-                    pdfurl = 'http://static.sse.com.cn' + i["URL"]
+                      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+                for da in dict_data["pageHelp"]["data"]:
+                    pdfurl = 'http://static.sse.com.cn' + da["URL"]
                     bulletinid = hashlib.md5(pdfurl).hexdigest()
                     bulletinid_list.append(bulletinid)
-                    data.update({bulletinid: (bulletinid, i["security_Code"].encode('utf-8'),
-                                              stock["stockname"], i["title"].encode('utf-8'),
-                                              i["bulletin_Type"].encode('utf-8'), pdfurl.encode('utf-8'),
-                                              i["bulletin_Year"].encode('utf-8'),
-                                              i["SSEDate"].encode('utf-8'), str(datetime.now()), 1)})
+                    data.update({bulletinid: (bulletinid, da["security_Code"].encode('utf-8'),
+                                              stock["stockname"], da["title"].encode('utf-8'),
+                                              da["bulletin_Type"].encode('utf-8'), pdfurl.encode('utf-8'),
+                                              da["bulletin_Year"].encode('utf-8'),
+                                              da["SSEDate"].encode('utf-8'), str(datetime.now()), 1)})
 
                     # sql = "INSERT INTO sh_a_share(bulletinid,stockcode,stockname, " \
                     #       "title,category,url,bulletinyear,bulletindate,uploadtime,datastatus) " \
@@ -299,12 +295,12 @@ def download_data(url, referer_header, stock, proxies, check_header):
                         db.cursor.executemany(sql, data.values())
                         db.conn.commit()
                     except Exception as e:
+                        print(e)
                         db.conn.rollback()
 
                 db.conn.close()
                 break
         else:
-            time.sleep(5)
             continue
 
 
@@ -376,5 +372,4 @@ if __name__ == '__main__':
         logging.info(msg)
         session.query(Sh_Share).filter(Sh_Share.stockcode == stock["stockcode"]).update({Sh_Share.datastatus: 2})
         session.commit()
-        time.sleep(5)
     print '{}:end'.format(datetime.now())

@@ -150,7 +150,6 @@ class MyTimingReptile(object):
             else:
                 session.query(Ip_Pool).filter(Ip_Pool.ip == proxie).update({Ip_Pool.datastatus: 2})
                 session.commit()
-                time.sleep(5)
                 continue
         return result
 
@@ -167,7 +166,6 @@ class MyTimingReptile(object):
                                      pageNo=i,
                                      beginPage=i)
             urls.append(stock_url)
-        time.sleep(5)
         return urls
 
 
@@ -217,7 +215,6 @@ def check_out(proxies, check_header):
         else:
             session.query(Ip_Pool).filter(Ip_Pool.ip == proxie).update({Ip_Pool.datastatus: 2})
             session.commit()
-            time.sleep(5)
             continue
     return result
 
@@ -247,13 +244,12 @@ def download_data(url, referer_header, stock, proxies, check_header):
                 dict_data = dict(json.loads(strJsonData))
             except Exception as e:
                 print e
-                time.sleep(5)
                 continue
             else:
                 db = MySqlCon()
                 data = {}
                 bulletinid_list = []
-                sql = """INSERT INTO sh_a_share(bulletinid,stockcode,stockname
+                sql = """INSERT INTO sh_a_share(bulletinid,stockcode,stockname,
                                       title,category,url,bulletinyear,bulletindate,uploadtime,datastatus)
                                       VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) """
                 for i in dict_data["pageHelp"]["data"]:
@@ -274,11 +270,9 @@ def download_data(url, referer_header, stock, proxies, check_header):
                         db.conn.commit()
                     except Exception as e:
                         db.conn.rollback()
-
                 db.conn.close()
                 break
         else:
-            time.sleep(5)
             continue
 
 
@@ -324,7 +318,7 @@ def try_timing():
         msg = '股票代码：{},股票名称：{},耗时：{}s,日期：{}'.format(stock["stockcode"], stock["stockname"], end - start,
                                                     datetime.now())
         logging.info(msg)
-        time.sleep(5)
+        time.sleep(1)
     print '{}:end'.format(datetime.now())
 
 

@@ -9,12 +9,15 @@ import requests
 from bs4 import BeautifulSoup
 import socket
 import threading
-from entities.models import session,Ip_Pool
+from entities.models import session, Ip_Pool
 import uuid
 from datetime import datetime
 
+
 def get_id():
     return str(uuid.uuid4())
+
+
 header_xici = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
     'Accept-Encoding': 'gzip, deflate',
@@ -26,17 +29,15 @@ header_xici = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.89 Safari/537.36'
 }
 
-
-
 header_sse = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Accept-Language": "zh-CN,zh;q=0.9",
-                "Cache-Control": "max-age=0",
-                "Connection": "keep-alive",
-                "Referer": "http://www.sse.com.cn/",
-                "Host": "www.sse.com.cn",
-                "Upgrade-Insecure-Requests": "1",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.89 Safari/537.36",
+              "Accept-Encoding": "gzip, deflate, br",
+              "Accept-Language": "zh-CN,zh;q=0.9",
+              "Cache-Control": "max-age=0",
+              "Connection": "keep-alive",
+              "Referer": "http://www.sse.com.cn/",
+              "Host": "www.sse.com.cn",
+              "Upgrade-Insecure-Requests": "1",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.89 Safari/537.36",
               }
 
 
@@ -102,12 +103,14 @@ class myThread(object):
         for thread in self.threads:
             thread.join()
 
+
 import time
+
 if __name__ == '__main__':
-    for i in xrange(1,20):
+    for i in xrange(1, 20):
         url = 'http://www.xicidaili.com/nn/{}'.format(i)
         proxys_list = proxys(header_xici, url)
         t = myThread(proxys_list, header_sse)
         t.thread_list()
         t.run()
-        time.sleep(5)
+
